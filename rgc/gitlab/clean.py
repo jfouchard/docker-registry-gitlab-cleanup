@@ -7,13 +7,14 @@ from rgc.registry.api import RegistryApi
 from termcolor import colored
 
 class GitlabClean( object ):
-    def __init__( self, user, token, gitlab_url, registry_url, retention, exclude ):
+    def __init__( self, user, token, gitlab_url, registry_url, retention, exclude, minimum_tags ):
        self.user         = user
        self.token        = token
        self.gitlab_url   = gitlab_url
        self.registry_url = registry_url
        self.retention    = retention
        self.exclude      = exclude
+       self.minimum_tags = int(minimum_tags)
 
     def clean_projects( self ):
         registry = RegistryApi(
@@ -37,7 +38,7 @@ class GitlabClean( object ):
                         subimages.append(image)
 
                 for subimage in subimages:
-                    print( '-> processing ' + subimage )
+                    print( '-> processing2 ' + subimage )
                     query_tags = registry.query( self.registry_url + '/v2/' + subimage + '/tags/list', 'get' )
 
                     try:
@@ -47,7 +48,7 @@ class GitlabClean( object ):
                     else:
                         tags = query_tags['tags']
 
-                    if tags != None and len( tags ) > 0:
+                    if tags != None and len( tags ) > self.minimum_tags:
                         print( '--> ' + str( len( tags ) ) + ' tag(s) found' )
                         for tag in tags:
                             if not re.match( self.exclude, tag ):
@@ -63,11 +64,13 @@ class GitlabClean( object ):
                                     if age.total_seconds() > ( int( self.retention ) * 60 * 60 * 24 ):
                                         print( colored( '--> removing ' + tag + ' (expired)', 'red' ) )
                                         digest = registry.query( self.registry_url + '/v2/' + subimage + '/manifests/' + tag, 'head' )['Docker-Content-Digest']
-                                        registry.query( self.registry_url + '/v2/' + subimage + '/manifests/' + digest, 'delete' )
+                                        #registry.query( self.registry_url + '/v2/' + subimage + '/manifests/' + digest, 'delete' )
                                     else:
                                         print( colored( '--> keeping ' + tag + ' (not expired)', 'green' ) )
                             else:
                                 print( colored( '--> keeping ' + tag + ' (excluded)', 'green' ) )
+                    elif tags != None and len ( tags ) > 0 and len ( tags ) < 10:
+                        print ( '--> only ' + str( len( tags ) ) + ' tags found, skipping')
                     else:
                         print( '--> no tags' )
 
