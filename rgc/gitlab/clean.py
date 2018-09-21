@@ -7,7 +7,7 @@ from rgc.registry.api import RegistryApi
 from termcolor import colored
 
 class GitlabClean( object ):
-    def __init__( self, user, token, gitlab_url, registry_url, retention, exclude, minimum_tags ):
+    def __init__( self, user, token, gitlab_url, registry_url, retention, exclude, minimum_tags, check_run ):
        self.user         = user
        self.token        = token
        self.gitlab_url   = gitlab_url
@@ -15,6 +15,7 @@ class GitlabClean( object ):
        self.retention    = retention
        self.exclude      = exclude
        self.minimum_tags = int(minimum_tags)
+       self.check_run    = check_run
 
     def clean_projects( self ):
         registry = RegistryApi(
@@ -62,9 +63,12 @@ class GitlabClean( object ):
                                     created_at = datetime.strptime( json.loads( tag_info['history'][0]['v1Compatibility'] )['created'][:-4], '%Y-%m-%dT%H:%M:%S.%f' )
                                     age = now - created_at
                                     if age.total_seconds() > ( int( self.retention ) * 60 * 60 * 24 ):
-                                        print( colored( '--> removing ' + tag + ' (expired)', 'red' ) )
-                                        digest = registry.query( self.registry_url + '/v2/' + subimage + '/manifests/' + tag, 'head' )['Docker-Content-Digest']
-                                        #registry.query( self.registry_url + '/v2/' + subimage + '/manifests/' + digest, 'delete' )
+                                        if self.check_run == None:
+                                            print( colored( '--> removing ' + tag + ' (expired)', 'red' ) )
+                                            digest = registry.query( self.registry_url + '/v2/' + subimage + '/manifests/' + tag, 'head' )['Docker-Content-Digest']
+                                            registry.query( self.registry_url + '/v2/' + subimage + '/manifests/' + digest, 'delete' )
+                                        else:
+                                            print( colored( '--> would remove ' + tag + ' (expired)', 'yellow' ) )
                                     else:
                                         print( colored( '--> keeping ' + tag + ' (not expired)', 'green' ) )
                             else:
